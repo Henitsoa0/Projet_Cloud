@@ -1,18 +1,169 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cloud Music Player</title>
-    <link rel="stylesheet" href="style.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cloud Music Player</title>
+
+<style>
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+}
+
+body{
+    font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;
+    background:linear-gradient(135deg,#1a1a2e 0%,#16213e 100%);
+    min-height:100vh;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    padding:20px;
+}
+
+.music-player{
+    background:rgba(255,255,255,.95);
+    border-radius:30px;
+    padding:30px;
+    width:100%;
+    max-width:450px;
+    box-shadow:0 25px 50px rgba(0,0,0,.3);
+}
+
+h1{
+    text-align:center;
+    color:#1a1a2e;
+    margin-bottom:10px;
+}
+
+.badge{
+    text-align:center;
+    color:#666;
+    font-size:.8rem;
+    margin-bottom:25px;
+}
+
+.cover{
+    width:200px;
+    height:200px;
+    margin:auto;
+    border-radius:20px;
+    background:linear-gradient(135deg,#667eea,#764ba2);
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    font-size:80px;
+    margin-bottom:20px;
+}
+
+.song-title{
+    text-align:center;
+    font-size:1.3rem;
+    font-weight:bold;
+}
+
+.song-artist{
+    text-align:center;
+    color:#777;
+    margin-bottom:20px;
+}
+
+.progress-container{
+    background:#ddd;
+    height:6px;
+    border-radius:10px;
+    cursor:pointer;
+}
+
+.progress{
+    width:0%;
+    height:100%;
+    border-radius:10px;
+    background:linear-gradient(90deg,#667eea,#764ba2);
+}
+
+.time-info{
+    display:flex;
+    justify-content:space-between;
+    margin:10px 0 20px;
+    font-size:.8rem;
+    color:#666;
+}
+
+.controls{
+    display:flex;
+    justify-content:center;
+    gap:20px;
+    margin-bottom:20px;
+}
+
+.controls button{
+    background:none;
+    border:none;
+    font-size:2rem;
+    cursor:pointer;
+}
+
+.volume-control{
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    gap:10px;
+    margin-bottom:20px;
+}
+
+.playlist{
+    border-top:1px solid #eee;
+    padding-top:15px;
+    max-height:250px;
+    overflow-y:auto;
+}
+
+.playlist-item{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:10px;
+    border-radius:10px;
+    cursor:pointer;
+}
+
+.playlist-item:hover{
+    background:#f5f5f5;
+}
+
+.playlist-item.active{
+    background:#eef0ff;
+}
+
+footer{
+    text-align:center;
+    margin-top:20px;
+    font-size:.75rem;
+    color:#999;
+}
+
+@keyframes pulse{
+    0%,100%{opacity:1;}
+    50%{opacity:.5;}
+}
+
+.playing-animation{
+    animation:pulse 1s infinite;
+}
+</style>
 </head>
+
 <body>
 
 <div class="music-player">
+
     <h1>🎵 Cloud Music</h1>
     <div class="badge">Hébergé sur Cloud Run ☁️</div>
 
     <div class="cover" id="cover">🎵</div>
+
     <div class="song-title" id="title">Sélectionnez une chanson</div>
     <div class="song-artist" id="artist">—</div>
 
@@ -40,8 +191,124 @@
     <div class="playlist" id="playlist"></div>
 
     <footer>Déployé sur :contentReference[oaicite:0]{index=0} Run • Lecteur de démonstration</footer>
+
 </div>
 
-<script src="script.js"></script>
+<script>
+const playlist = [
+{title:"Midnight Dreams",artist:"Electra",durationSec:184,durationStr:"3:04",emoji:"🌙"},
+{title:"Golden Hour",artist:"Aurora",durationSec:211,durationStr:"3:31",emoji:"☀️"},
+{title:"Neon Lights",artist:"Pixel",durationSec:198,durationStr:"3:18",emoji:"💡"},
+{title:"Ocean Drive",artist:"Wave",durationSec:223,durationStr:"3:43",emoji:"🌊"},
+{title:"Starlight",artist:"Cosmo",durationSec:175,durationStr:"2:55",emoji:"⭐"}
+];
+
+let currentSongIndex = 0;
+let isPlaying = false;
+let progressInterval = null;
+let currentSeconds = 0;
+let songDuration = playlist[0].durationSec;
+
+function formatTime(seconds){
+    const mins = Math.floor(seconds/60);
+    const secs = Math.floor(seconds%60);
+    return mins + ":" + secs.toString().padStart(2,"0");
+}
+
+function updateTimeDisplay(){
+    document.getElementById("currentTime").textContent = formatTime(currentSeconds);
+    document.getElementById("progress").style.width =
+        ((currentSeconds/songDuration)*100) + "%";
+}
+
+function stopProgress(){
+    clearInterval(progressInterval);
+}
+
+function startProgress(){
+    stopProgress();
+
+    progressInterval = setInterval(()=>{
+        if(isPlaying && currentSeconds < songDuration){
+            currentSeconds += 0.1;
+            updateTimeDisplay();
+
+            if(currentSeconds >= songDuration){
+                nextSong();
+            }
+        }
+    },100);
+}
+
+function loadSong(index){
+    currentSongIndex = index;
+    const song = playlist[index];
+
+    currentSeconds = 0;
+    songDuration = song.durationSec;
+
+    document.getElementById("title").textContent = song.title;
+    document.getElementById("artist").textContent = song.artist;
+    document.getElementById("duration").textContent = song.durationStr;
+    document.getElementById("cover").textContent = song.emoji;
+
+    updatePlaylistUI();
+    updateTimeDisplay();
+}
+
+function togglePlay(){
+    isPlaying = !isPlaying;
+
+    if(isPlaying){
+        document.getElementById("playBtn").textContent = "⏸️";
+        document.getElementById("cover").classList.add("playing-animation");
+        startProgress();
+    }else{
+        document.getElementById("playBtn").textContent = "▶️";
+        document.getElementById("cover").classList.remove("playing-animation");
+        stopProgress();
+    }
+}
+
+function nextSong(){
+    loadSong((currentSongIndex + 1) % playlist.length);
+    if(isPlaying) startProgress();
+}
+
+function prevSong(){
+    loadSong((currentSongIndex - 1 + playlist.length) % playlist.length);
+    if(isPlaying) startProgress();
+}
+
+function updatePlaylistUI(){
+    const container = document.getElementById("playlist");
+    container.innerHTML = "";
+
+    playlist.forEach((song,index)=>{
+        const div = document.createElement("div");
+
+        div.className = "playlist-item " + (index===currentSongIndex ? "active":"");
+
+        div.innerHTML = `
+        <div>
+            ${song.emoji} ${song.title}<br>
+            <small>${song.artist}</small>
+        </div>
+        <span>${song.durationStr}</span>
+        `;
+
+        div.onclick = ()=>loadSong(index);
+
+        container.appendChild(div);
+    });
+}
+
+document.getElementById("playBtn").onclick = togglePlay;
+document.getElementById("nextBtn").onclick = nextSong;
+document.getElementById("prevBtn").onclick = prevSong;
+
+loadSong(0);
+</script>
+
 </body>
 </html>
